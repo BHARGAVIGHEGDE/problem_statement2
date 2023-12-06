@@ -19,6 +19,37 @@ sd= pd.DataFrame(data)
 #  I have used the hyper tuning parameter called Feature engineering
 sd['Traffic_Green_Cover'] = sd['Traffic'] * sd['Green_Cover']
 
+sample_data['Route'] = ['Route_A', 'Route_B', 'Route_A', 'Route_C', 'Route_B']
+
+# Splitting the data
+x = df[['Traffic', 'AQI', 'Green_Cover', 'Traffic_Green_Cover', 'Route']]
+y = df['Cleanliness_Score']
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
+
+# Building a model for each route
+models = {}
+for route in df['Route'].unique():
+    model = make_pipeline(StandardScaler(), RandomForestRegressor(random_state=42))
+    param_grid = {
+        'randomforestregressor__n_estimators': [50, 100, 150],
+        'randomforestregressor__max_depth': [None, 10, 20, 30],
+    }
+    grid_search = GridSearchCV(model, param_grid, cv=3, scoring='neg_mean_squared_error')
+    grid_search.fit(x_train[x_train['Route'] == route].drop('Route', axis=1), y_train[x_train['Route'] == route])
+    models[route] = grid_search.best_estimator_
+
+# Making predictions for each route
+predictions = {}
+for route, model in models.items():
+    test_data = x_test[x_test['Route'] == route].drop('Route', axis=1)
+    predictions[route] = model.predict(test_data)
+
+# Evaluating and printing results for each route
+for route, model in models.items():
+    mse = mean_squared_error(y_test[x_test['Route'] == route], predictions[route])
+    print(f'Mean Squared Error for {route}: {mse}')
+    print(f'Best Hyperparameters for {route}: {grid_search.best_params_}')
+
 # Splitting  the data into features and target variable
 x = sd[['Traffic', 'AQI', 'Green_Cover', 'Traffic_Green_Cover']]
 y = sd['Cleanliness_Score']
